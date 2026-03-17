@@ -1,0 +1,6 @@
+{
+    "id": "countdown",
+    "name": "Countdown",
+    "description": "A widget with a countdown to a specified date",
+    "anchor": "center"
+}
