@@ -1,0 +1,10 @@
+/* Countdown widget styling */
+.countdown-widget-container {
+    border-radius: inherit;
+}
+
+.countdown-widget-label {
+    font-size: inherit;
+    font-family: monospace;
+}
+

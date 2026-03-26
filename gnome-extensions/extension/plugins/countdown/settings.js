@@ -121,8 +121,6 @@ export function buildSettings(config, onConfigChange) {
     monthlyDayRow.add_suffix(monthlyDaySpin);
     recurringGroup.add(monthlyDayRow);
 
-    contentGroups.push(recurringGroup);
-
     // --- Visibility logic ---
     function updateVisibility() {
         const isRecurring = recurringSwitch.get_active();
@@ -155,9 +153,10 @@ export function buildSettings(config, onConfigChange) {
     appearanceGroups.push(...buildBaseStyleSettings(currentStyle, onStyleChange));
 
     // Add main group to content (after recurrence group, so order in UI is: title, time, date, then recurrence)
+    contentGroups.push(recurringGroup);
     contentGroups.push(mainGroup);
 
-    // --- Update timestamp when any date/time spinner changes ---
+    // --- Update timestamp when any spinner changes ---
     const updateTimestamp = () => {
         // Use current values from spinners
         const h = hour.spinner.get_value_as_int();

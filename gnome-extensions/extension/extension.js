@@ -149,7 +149,8 @@ class WidgetCanvas {
         const positionWidget = () => {
             if (widgetActor.width === 0 && widgetActor.height === 0) return;
             const pos = applyAnchor(x, y, widgetActor.width, widgetActor.height, anchor);
-            widgetActor.set_position(pos.x, pos.y);
+            // Snap to whole pixels to avoid subpixel jitter/blur on Wayland/Clutter.
+            widgetActor.set_position(Math.round(pos.x), Math.round(pos.y));
         };
 
         const signalId = widgetActor.connect('notify::allocation', positionWidget);

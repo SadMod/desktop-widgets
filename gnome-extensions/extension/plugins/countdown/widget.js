@@ -20,6 +20,9 @@ const CountdownWidget = GObject.registerClass(
                 style_class: 'countdown-widget-container',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
+                x_expand: true,
+                // Avoid vertical "breathing" on each tick; timer updates don't require it.
+                y_expand: false,
             });
 
             this._config = config || {};
@@ -38,9 +41,17 @@ const CountdownWidget = GObject.registerClass(
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
+                y_expand: false,
             });
+            
+            // Keep monospace via CSS; avoid hardcoded size (can cause clipping per instance).
+            this._label.clutter_text.set_use_markup(false);
+            // Prevent potential text truncation/overflow rendering artifacts.
+            this._label.clutter_text.ellipsize = 0;
+            
             this.set_child(this._label);
 
+            this._lastUnitsKey = null;
             this._updateDisplay();
             this._startTimer();
         }
@@ -68,20 +79,32 @@ const CountdownWidget = GObject.registerClass(
             let target = this._getNextTarget();
             let remainingSeconds = Math.max(0, target - now);
             
-            let timeStr = this._formatRemainingTime(remainingSeconds);
+            const { fullText, unitsKey } = this._formatRemainingTimeDetailed(remainingSeconds);
             
-            // Use set_text (no markup needed)
-            this._label.set_text(`${this._title}: ${timeStr}`);
+            // Update via property to match other plugins (e.g. datetime)
+            const shouldRelayout =
+                this._lastUnitsKey === null // first render
+                || unitsKey !== this._lastUnitsKey; // units part changed (e.g. days->0, months appear, etc.)
+
+            this._label.text = `${this._title}: ${fullText}`;
+            if (shouldRelayout) {
+                this._label.queue_relayout();
+                this.queue_relayout();
+                this._lastUnitsKey = unitsKey;
+            }
         }
 
         /**
-         * Format remaining seconds into a human-readable string with appropriate units
+         * Format remaining seconds into a human-readable string.
+         * Additionally returns a "units key" that changes only when the units part width can change.
          * @private
          * @param {number} totalSeconds
-         * @returns {string}
+         * @returns {{fullText: string, unitsKey: string}}
          */
-        _formatRemainingTime(totalSeconds) {
-            if (totalSeconds <= 0) return '00:00:00';
+        _formatRemainingTimeDetailed(totalSeconds) {
+            if (totalSeconds <= 0) {
+                return { fullText: '00:00:00', unitsKey: 'zero' };
+            }
             
             // Calculate time components
             const secondsInMinute = 60;
@@ -121,13 +144,9 @@ const CountdownWidget = GObject.registerClass(
             // Always show time part (HH:MM:SS)
             const timePart = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             
-            if (parts.length > 0) {
-                // If we have years/months/days, combine with time
-                return `${parts.join(' ')} ${timePart}`;
-            } else {
-                // Less than a day: just show time
-                return timePart;
-            }
+            const unitsKey = parts.join(' '); // width changes only when this changes
+            const fullText = parts.length > 0 ? `${unitsKey} ${timePart}` : timePart;
+            return { fullText, unitsKey };
         }
 
         /**
@@ -147,9 +166,6 @@ const CountdownWidget = GObject.registerClass(
                 case 'daily':
                     // Get time of day from original target
                     let targetDate = new Date(target * 1000);
-                    let targetTimeOfDay = targetDate.getHours() * 3600 + 
-                                         targetDate.getMinutes() * 60 + 
-                                         targetDate.getSeconds();
                     
                     // Create today's timestamp with same time
                     let today = new Date();
@@ -164,6 +180,7 @@ const CountdownWidget = GObject.registerClass(
                     let todayTargetSec = Math.floor(todayTarget.getTime() / 1000);
                     
                     return todayTargetSec > now ? todayTargetSec : todayTargetSec + 86400;
+                
                     
                 case 'weekly':
                     // Get time from target, day from config
@@ -264,6 +281,7 @@ const CountdownWidget = GObject.registerClass(
             this._weeklyDay = newConfig.weeklyDay || 0;
             this._monthlyDay = newConfig.monthlyDay || 1;
             this._updateDisplay();
+            this.queue_relayout();
             // Timer continues automatically
         }
 
